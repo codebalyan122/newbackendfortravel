@@ -5,7 +5,7 @@ const bodyParser = require("body-parser");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const morgan = require("morgan");
-const rateLimit = require("express-rate-limit");
+// const rateLimit = require("express-rate-limit");
 const OfferSchemas = require("./schemas/OfferPageSchemas");
 const settingSchemas = require("./schemas/settingSchema");
 const sliderSchemas = require("./schemas/sliderSchema");
@@ -29,12 +29,12 @@ app.use(cors());
 app.use(morgan("tiny"));
 app.disable("x-powered-by");
 
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: "Too many requests from this IP, please try again later",
-});
-app.use(limiter);
+// const limiter = rateLimit({
+//   windowMs: 15 * 60 * 1000, // 15 minutes
+//   max: 100, // limit each IP to 100 requests per windowMs
+//   message: "Too many requests from this IP, please try again later",
+// });
+// app.use(limiter);
 const port = process.env.PORT || 8080;
 const mongoURI =
   "mongodb+srv://balyancode122:balyancode@cluster0.ilbpvsv.mongodb.net/";
