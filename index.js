@@ -1,10 +1,12 @@
 const cors = require("cors");
 const express = require("express");
+const path = require("path");
 const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const morgan = require("morgan");
+const fileUpload = require("express-fileupload");
 // const rateLimit = require("express-rate-limit");
 const OfferSchemas = require("./schemas/OfferPageSchemas");
 const settingSchemas = require("./schemas/settingSchema");
@@ -28,6 +30,7 @@ app.use(bodyParser.json());
 app.use(cors());
 app.use(morgan("tiny"));
 app.disable("x-powered-by");
+app.use(fileUpload());
 
 // const limiter = rateLimit({
 //   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -51,11 +54,64 @@ app.get("/get/settings", async (req, res) => {
 });
 
 app.post("/settings", async (req, res) => {
-  const data = req.body;
+  try {
+    let fileUrl = "";
+    if (req.files && req.files.file) {
+      const file = req.files.file;
+      const fileName = file.name;
+      // Move the file to the desired folder
+      await file.mv(path.join(__dirname, "images", fileName));
+      fileUrl = `/images/${fileName}`; // Relative path to access the file later
+    }
 
-  const settingDocument = await new settingSchemas(data);
-  const document = await settingDocument.save();
-  res.status(201).json(document);
+    // Extract data from the request body
+    const {
+      email,
+      contact_Number,
+      whatsapp_Number,
+      address,
+      footer_copyRight,
+      companyName,
+      terms,
+      facebookLink,
+      twitter,
+      instagram,
+      youtube,
+      linkedin,
+    } = req.body;
+
+    // Create a new document using the schema
+    const settingDocument = new settingSchemas({
+      email,
+      contact_Number,
+      whatsapp_Number,
+      address,
+      footer_copyRight,
+      companyName,
+      terms,
+      facebookLink,
+      twitter,
+      instagram,
+      youtube,
+      linkedin,
+      image: req.files && req.files.file ? req.files.file.name : "", // Store only the file name in the database
+      fileUrl, // Store the relative path to the file
+    });
+
+    // Save the document to the database
+    const document = await settingDocument.save();
+
+    // Construct the response object
+    const responseData = {
+      ...document.toObject(), // Convert Mongoose document to plain JavaScript object
+      fileUrl: fileUrl, // Include the file URL in the response
+    };
+
+    res.status(201).json(responseData);
+  } catch (error) {
+    console.error("Error uploading file:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 app.put("/setting-update-data", async (req, res) => {
@@ -64,14 +120,29 @@ app.put("/setting-update-data", async (req, res) => {
 
   try {
     const document = await settingSchemas.findOne();
-    // console.log(document);
+    console.log("document", document);
 
     if (document) {
-      const updatedDocument = await settingSchemas.updateOne(
-        { _id: document._id },
-        newData
-      );
-      res.status(201).json(updatedDocument);
+      // Check if there is a new image file
+      if (req.files && req.files.file) {
+        const file = req.files.file;
+        const fileName = file.name;
+        // Move the file to the desired folder
+        await file.mv(path.join(__dirname, "images", fileName));
+        const fileUrl = `/images/${fileName}`; // Relative path to access the file later
+        newData.image = fileName; // Update the image field in newData
+        newData.fileUrl = fileUrl; // Update the fileUrl field in newData
+      }
+
+      // Update the document fields individually
+      Object.keys(newData).forEach((key) => {
+        document[key] = newData[key];
+      });
+
+      // Save the updated document
+      const updatedDocument = await document.save();
+
+      res.status(200).json(updatedDocument);
     } else {
       res.status(404).json({ error: "Document not found" });
     }
@@ -87,12 +158,34 @@ app.get("/sliderData", async (req, res) => {
 });
 
 app.post("/sliderData/post", async (req, res) => {
-  const data = req.body;
-  // console.log(data);
-  const sliderDocument = await new sliderSchemas(data);
-  const document = await sliderDocument.save();
+  try {
+    let fileUrl = "";
+    if (req.files && req.files.file) {
+      const file = req.files.file;
+      const fileName = file.name;
+      // Move the file to the desired folder
+      await file.mv(path.join(__dirname, "slider", fileName));
+      fileUrl = `/slider/${fileName}`; // Relative path to access the file later
+    }
 
-  res.status(200).json(document);
+    // Extract data from the request body
+    const { text } = req.body;
+
+    // Create a new slider document using the schema
+    const sliderDocument = new sliderSchemas({
+      text,
+      image: req.files && req.files.file ? req.files.file.name : "", // Store only the file name in the database
+      fileUrl, // Store the relative path to the file
+    });
+
+    // Save the slider document to the database
+    const document = await sliderDocument.save();
+
+    res.status(200).json(document);
+  } catch (error) {
+    console.error("Error uploading file:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 app.get("/slider/slide/:id", async (req, res) => {
@@ -105,14 +198,37 @@ app.get("/slider/slide/:id", async (req, res) => {
   res.status(200).json({ data });
 });
 
-app.put("/slider/update/:id", async (req, res) => {
+app.patch("/slider/update/:id", async (req, res) => {
   const id = req.params.id;
   const newData = req.body;
 
   try {
+    let fileUrl = ""; // New fileUrl if a new file is uploaded
+
+    // Check if a new file is uploaded
+    if (req.files && req.files.file) {
+      const file = req.files.file;
+      const fileName = file.name;
+      // Move the file to the desired folder
+      await file.mv(path.join(__dirname, "slider", fileName));
+      fileUrl = `/slider/${fileName}`; // Relative path to access the file later
+    }
+
+    // Update the newData with the new fileUrl if available
+    if (fileUrl) {
+      newData.fileUrl = fileUrl;
+    }
+    const newDatas =
+      req.files && req.files.file
+        ? { ...newData, image: req.files.file.name }
+        : { ...newData };
+
+    // Update the document
     const updatedDocument = await sliderSchemas.findByIdAndUpdate(
       id,
-      { $set: newData },
+      {
+        $set: newDatas,
+      },
       { new: true }
     );
 
@@ -151,14 +267,30 @@ app.delete("/slider/delete/:id", async (req, res) => {
 // Top Tour Package
 app.post("/top-tour-post", async (req, res) => {
   try {
+    let fileUrl = ""; // For single image upload
+
+    // Handle single image upload
+    if (req.files && req.files.file) {
+      const file = req.files.file;
+      const fileName = file.name;
+      await file.mv(path.join(__dirname, "topcategory", fileName));
+      fileUrl = `/topcategory/${fileName}`; // Relative path to access the file later
+    }
+
     const data = req.body;
+    data.fileUrl = fileUrl; // Store the relative path to the single file
 
-    const topTourDocument = new ToppackageSchemas(data);
+    // Create a new top tour document using the schema
+    const topTourDocument = new ToppackageSchemas({
+      ...data,
+      image: req.files && req.files.file ? req.files.file.name : "",
+      fileUrl,
+    });
 
-    // console.log(topTourDocument);
-
+    // Save the document to the database
     const savedDocument = await topTourDocument.save();
 
+    // Send the saved document as the response
     res.status(200).json(savedDocument);
   } catch (error) {
     // Handle errors gracefully
@@ -182,14 +314,28 @@ app.get("/top-tour-get/:id", async (req, res) => {
   res.status(200).json({ data });
 });
 
-app.put("/top-tour-edit/:id", async (req, res) => {
+app.patch("/top-tour-edit/:id", async (req, res) => {
   const id = req.params.id;
   const newData = req.body;
-  // console.log(newData);
+  console.log(newData, req.files);
   try {
+    let fileUrl = ""; // For single image upload
+
+    // Handle single image upload
+    if (req.files && req.files.file) {
+      const file = req.files.file;
+      const fileName = file.name;
+      await file.mv(path.join(__dirname, "topcategory", fileName));
+      fileUrl = `/topcategory/${fileName}`; // Relative path to access the file later
+    }
+
     const updatedDocument = await ToppackageSchemas.findByIdAndUpdate(
       id,
-      newData,
+      {
+        ...newData,
+        image: req.files && req.files.file ? req.files.file.name : "",
+        fileUrl,
+      },
       { new: true }
     );
 
@@ -231,22 +377,54 @@ app.get("/mid-tour-get/:id", async (req, res) => {
 });
 
 app.post("/mid-tour-post", async (req, res) => {
+  const data = req.body;
   try {
-    const data = req.body;
-    // console.log(data);
-    const midTourDocument = new MidpackageSchemas(data);
+    let fileUrl = ""; // For single image upload
 
-    // console.log(topTourDocument);
+    Object.keys(req.body).forEach((key) => {
+      const matchPlacename = key.match(
+        /^placeForMidCategory\[(\d+)\]\[(value|label)\]$/
+      );
+      if (matchPlacename) {
+        const index = parseInt(matchPlacename[1]);
+        const field = matchPlacename[2];
+        if (!data.placeForMidCategory) data.placeForMidCategory = [];
+        if (!data.placeForMidCategory[index])
+          data.placeForMidCategory[index] = {};
+        data.placeForMidCategory[index][field] = req.body[key];
+      }
+    });
 
+    // Handle single image upload
+    if (req.files && req.files.file) {
+      const file = req.files.file;
+      const fileName = file.name;
+      await file.mv(path.join(__dirname, "midtour", fileName));
+      fileUrl = `/midtour/${fileName}`; // Relative path to access the file later
+    }
+
+    data.fileUrl = fileUrl; // Store the relative path to the single file
+    console.log("midtour", data);
+
+    // Create a new mid tour document using the schema
+    const midTourDocument = new MidpackageSchemas({
+      ...data,
+      topCategoryName: JSON.parse(data?.topCategoryName),
+      image: req.files && req.files.file ? req.files.file.name : "",
+      fileUrl,
+    });
+
+    // Save the document to the database
     const savedDocument = await midTourDocument.save();
 
+    // Send the saved document as the response
     res.status(200).json(savedDocument);
   } catch (error) {
+    // Handle errors gracefully
     console.error("Error processing the request:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
-
 // app.get("/mid-tour-get", async (req, res) => {
 //   try {
 //     const data = await MidpackageSchemas.find();
@@ -269,15 +447,51 @@ app.get("/mid-tour-get", async (req, res) => {
   }
 });
 
-app.put("/mid-tour-edit/:id", async (req, res) => {
+app.patch("/mid-tour-edit/:id", async (req, res) => {
   const id = req.params.id;
   // console.log("id", id);
-  const newData = req.body;
+  const data = req.body;
   // console.log(newData);
   try {
+    let fileUrl = "";
+
+    Object.keys(req.body).forEach((key) => {
+      const matchPlacename = key.match(
+        /^placeForMidCategory\[(\d+)\]\[(value|label)\]$/
+      );
+      if (matchPlacename) {
+        const index = parseInt(matchPlacename[1]);
+        const field = matchPlacename[2];
+        if (!data.placeForMidCategory) data.placeForMidCategory = [];
+        if (!data.placeForMidCategory[index])
+          data.placeForMidCategory[index] = {};
+        data.placeForMidCategory[index][field] = req.body[key];
+      }
+    });
+
+    // Handle single image upload
+    if (req.files && req.files.file) {
+      const file = req.files.file;
+      const fileName = file.name;
+      await file.mv(path.join(__dirname, "midtour", fileName));
+      fileUrl = `/midtour/${fileName}`; // Relative path to access the file later
+    }
+
+    const images = req.body?.file
+      ? req.body.file
+      : req.files && req.files.file
+      ? req.files.file.name
+      : "";
+    const imageurl = req.body?.fileUrl ? req.body.fileUrl : fileUrl;
+
+    console.log("mid-tour-edit", data);
     const updatedDocument = await MidpackageSchemas.findByIdAndUpdate(
       id,
-      newData,
+      {
+        ...data,
+        image: images,
+        fileUrl: imageurl,
+      },
       { new: true }
     );
 
@@ -310,12 +524,33 @@ app.delete("/mid-tour-delete/:id", async (req, res) => {
 // Region
 app.post("/region-tour-post", async (req, res) => {
   try {
+    let fileUrl = ""; // For single image upload
+
+    // Handle single image upload
+    if (req.files && req.files.file) {
+      const file = req.files.file;
+      const fileName = file.name;
+      await file.mv(path.join(__dirname, "region", fileName));
+      fileUrl = `/region/${fileName}`; // Relative path to access the file later
+    }
+
     const data = req.body;
-    // console.log(data);
-    const midTourDocument = new RegionSchemas(data);
-    const savedDocument = await midTourDocument.save();
+    //  / Store the relative path to the single file
+
+    // Create a new region tour document using the schema
+    const regionTourDocument = new RegionSchemas({
+      ...data,
+      image: req.files && req.files.file ? req.files.file.name : "",
+      fileUrl,
+    });
+
+    // Save the document to the database
+    const savedDocument = await regionTourDocument.save();
+
+    // Send the saved document as the response
     res.status(200).json(savedDocument);
   } catch (error) {
+    // Handle errors gracefully
     console.error("Error processing the request:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
@@ -340,15 +575,38 @@ app.get("/region-tour-get/:id", async (req, res) => {
   res.status(200).json({ data });
 });
 
-app.put("/region-tour-edit/:id", async (req, res) => {
+app.patch("/region-tour-edit/:id", async (req, res) => {
   const id = req.params.id;
   // console.log("id", id);
-  const newData = req.body;
+
   // console.log(newData);
+  const data = req.body;
   try {
-    const updatedDocument = await RegionSchemas.findByIdAndUpdate(id, newData, {
-      new: true,
-    });
+    let fileUrl = ""; // For single image upload
+
+    // Handle single image upload
+    if (req.files && req.files.file) {
+      const file = req.files.file;
+      const fileName = file.name;
+      await file.mv(path.join(__dirname, "region", fileName));
+      fileUrl = `/region/${fileName}`; // Relative path to access the file later
+    }
+
+    data.fileUrl = fileUrl;
+    console.log("region", data);
+    const images = req.body?.file
+      ? req.body.file
+      : req.files && req.files.file
+      ? req.files.file.name
+      : "";
+    const imageurl = req.body?.fileUrl ? req.body.fileUrl : fileUrl;
+    const updatedDocument = await RegionSchemas.findByIdAndUpdate(
+      id,
+      { ...data, image: images, fileUrl: imageurl },
+      {
+        new: true,
+      }
+    );
 
     if (updatedDocument) {
       res.status(201).json(updatedDocument);
@@ -379,16 +637,33 @@ app.delete("/region-tour-delete/:id", async (req, res) => {
 // Interest
 app.post("/interest-tour-post", async (req, res) => {
   try {
+    let fileUrl = ""; // For single image upload
+
+    // Handle single image upload
+    if (req.files && req.files.file) {
+      const file = req.files.file;
+      const fileName = file.name;
+      await file.mv(path.join(__dirname, "interest", fileName));
+      fileUrl = `/interest/${fileName}`; // Relative path to access the file later
+    }
+
     const data = req.body;
-    // console.log(data);
-    const midTourDocument = new InterestSchema(data);
+    data.fileUrl = fileUrl; // Store the relative path to the single file
 
-    // console.log(topTourDocument);
+    // Create a new interest tour document using the schema
+    const interestTourDocument = new InterestSchema({
+      ...data,
+      image: req.files && req.files.file ? req.files.file.name : "",
+      fileUrl,
+    });
 
-    const savedDocument = await midTourDocument.save();
+    // Save the document to the database
+    const savedDocument = await interestTourDocument.save();
 
+    // Send the saved document as the response
     res.status(200).json(savedDocument);
   } catch (error) {
+    // Handle errors gracefully
     console.error("Error processing the request:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
@@ -413,16 +688,36 @@ app.get("/interest-tour-get/:id", async (req, res) => {
   res.status(200).json({ data });
 });
 
-app.put("/interest-tour-edit/:id", async (req, res) => {
+app.patch("/interest-tour-edit/:id", async (req, res) => {
   const id = req.params.id;
   // console.log("id", id);
-  const newData = req.body;
+  const data = req.body;
   // console.log(newData);
   try {
+    let fileUrl = ""; // For single image upload
+
+    // Handle single image upload
+    if (req.files && req.files.file) {
+      const file = req.files.file;
+      const fileName = file.name;
+      await file.mv(path.join(__dirname, "interest", fileName));
+      fileUrl = `/interest/${fileName}`; // Relative path to access the file later
+    }
+
+    data.fileUrl = fileUrl;
+    console.log("interest", data);
+    const images = req.body?.file
+      ? req.body.file
+      : req.files && req.files.file
+      ? req.files.file.name
+      : "";
+    const imageurl = req.body?.fileUrl ? req.body.fileUrl : fileUrl;
     const updatedDocument = await InterestSchema.findByIdAndUpdate(
       id,
-      newData,
-      { new: true }
+      { ...data, image: images, fileUrl: imageurl },
+      {
+        new: true,
+      }
     );
 
     if (updatedDocument) {
@@ -453,16 +748,32 @@ app.delete("/interests-tour-delete/:id", async (req, res) => {
 
 // Destination
 app.post("/destination-tour-post", async (req, res) => {
+  console.log(req.body);
+  console.log(req.files);
   try {
+    let fileUrl = "";
+    if (req.files && req.files.file) {
+      const file = req.files.file;
+      const fileName = file.name;
+      // Move the file to the desired folder
+      await file.mv(path.join(__dirname, "destinations", fileName));
+      fileUrl = `/destinations/${fileName}`; // Relative path to access the file later
+    }
+
     const data = req.body;
-    console.log("destination", data);
-    const midTourDocument = await DestinationSchemas.create(data);
+    data.fileUrl = fileUrl; // Store the relative path to the file
 
-    // console.log(topTourDocument);
+    // Create a new destination tour document using the schema
+    const destinationDocument = await DestinationSchemas.create({
+      ...data,
+      image: req.files && req.files.file ? req.files.file.name : "",
+      fileUrl,
+    });
 
-    res
-      .status(200)
-      .json({ data: midTourDocument, msg: "Sucessfully added Destination" });
+    res.status(200).json({
+      data: destinationDocument,
+      msg: "Successfully added Destination",
+    });
   } catch (error) {
     console.error("Error processing the request:", error);
     res.status(500).json({ error: "Internal Server Error" });
@@ -488,15 +799,36 @@ app.get("/destination-tour-get/:id", async (req, res) => {
   res.status(200).json({ data });
 });
 
-app.put("/destination-tour-edit/:id", async (req, res) => {
+app.patch("/destination-tour-edit/:id", async (req, res) => {
   const id = req.params.id;
   // console.log("id", id);
   const newData = req.body;
   // console.log(newData);
   try {
+    let fileUrl = ""; // New fileUrl if a new file is uploaded
+
+    // Check if a new file is uploaded
+    if (req.files && req.files.file) {
+      const file = req.files.file;
+      const fileName = file.name;
+      // Move the file to the desired folder
+      await file.mv(path.join(__dirname, "destinations", fileName));
+      fileUrl = `/destinations/${fileName}`; // Relative path to access the file later
+    }
+
+    // Update the newData with the new fileUrl if available
+    if (fileUrl) {
+      newData.fileUrl = fileUrl;
+    }
+
+    const newDatas =
+      req.files && req.files.file
+        ? { ...newData, image: req.files.file.name }
+        : { ...newData };
+
     const updatedDocument = await DestinationSchemas.findByIdAndUpdate(
       id,
-      newData,
+      newDatas,
       { new: true }
     );
 
@@ -528,41 +860,31 @@ app.delete("/destination-tour-delete/:id", async (req, res) => {
 
 // Place Name
 app.post("/placename-tour-post", async (req, res) => {
-  // console.log(req.body);
   try {
-    const destination = await DestinationSchemas.findOne({
-      DestinationName: req.body.DestinationName,
-    });
-
-    // console.log(destination);
-    if (!destination) {
-      return res.status(404).json({ error: "Destination not found" });
+    let fileUrl = "";
+    if (req.files && req.files.file) {
+      const file = req.files.file;
+      const fileName = file.name;
+      // Move the file to the desired folder
+      await file.mv(path.join(__dirname, "placename", fileName));
+      fileUrl = `/placename/${fileName}`; // Relative path to access the file later
     }
 
     const data = req.body;
-    // console.log(data);
-    const {
-      Placename,
-      file,
-      fileUrl,
-      showOnMenu,
-      showForHotel,
-      seoTitle,
-      seoKeyword,
-      seoDescription,
-      extractedText,
-    } = req.body;
+    console.log("placenamepost", req.body);
+    // Create a new placename tour document using the schema
     const newPlacename = await PlaceNameSchemas.create({
-      DestinationName: destination._id,
-      Placename,
+      DestinationName: JSON.parse(data.DestinationName),
+      Placename: data.Placename,
       fileUrl,
-      showOnMenu,
-      showForHotel,
-      seoTitle,
-      seoKeyword,
-      seoDescription,
-      extractedText,
-      destinationName: req.body.DestinationName,
+      showOnMenu: data.showOnMenu,
+      showForHotel: data.showForHotel,
+      seoTitle: data.seoTitle,
+      seoKeyword: data.seoKeyword,
+      seoDescription: data.seoDescription,
+      extractedText: data.extractedText,
+
+      image: req.files && req.files.file ? req.files.file.name : "",
     });
 
     res.status(201).json(newPlacename);
@@ -590,7 +912,7 @@ app.get("/placename-tour-get/:id", async (req, res) => {
   const id = req.params.id;
   // console.log(id);
 
-  const data = await PlaceNameSchemas.findById(id);
+  const data = await PlaceNameSchemas.findById({ _id: id });
   // console.log(data);
   res.status(200).json({ data });
 });
@@ -605,15 +927,51 @@ app.get("/placename-tour-get", async (req, res) => {
   }
 });
 
-app.put("/placename-tour-edit/:id", async (req, res) => {
+app.patch("/placename-tour-edit/:id", async (req, res) => {
   const id = req.params.id;
   // console.log("id", id);
   const newData = req.body;
   console.log(newData);
   try {
+    let fileUrl = ""; // New fileUrl if a new file is uploaded
+
+    // Check if a new file is uploaded
+    if (req.files && req.files.file) {
+      const file = req.files.file;
+      const fileName = file.name;
+      // Move the file to the desired folder
+      await file.mv(path.join(__dirname, "destinations", fileName));
+      fileUrl = `/destinations/${fileName}`; // Relative path to access the file later
+    }
+
+    const data = {};
+
+    Object.keys(req.body).forEach((key) => {
+      // Check if the key matches the pattern for DestinationName
+      const matchDestinationName = key.match(/^DestinationName\[(id|name)\]$/);
+
+      if (matchDestinationName) {
+        // Extract the field (id or name)
+        const field = matchDestinationName[1];
+
+        // Store the value in the data object under the appropriate field
+        data[field] = req.body[key];
+      }
+    });
+    // Update the newData with the new fileUrl if available
+    if (fileUrl) {
+      newData.fileUrl = fileUrl;
+    }
+
+    console.log("placenamepatch", newData);
+
+    const newDatas =
+      req.files && req.files.file
+        ? { ...newData, image: req.files.file.name }
+        : { ...newData };
     const updatedDocument = await PlaceNameSchemas.findByIdAndUpdate(
       id,
-      newData,
+      { ...newDatas, DestinationName: data },
       { new: true }
     );
 
@@ -646,20 +1004,163 @@ app.delete("/placename-tour-delete/:id", async (req, res) => {
 
 // Add Package
 app.post("/add-package-tour-post", async (req, res) => {
-  // const data = req.body;
-
-  // console.log("data", data);
-
   try {
+    let fileUrl = ""; // For single image upload
+    let newImagesUrl = []; // For multiple image upload
+
+    // Handle single image upload
+    if (req.files && req.files.file) {
+      const file = req.files.file;
+      const fileName = file.name;
+      await file.mv(path.join(__dirname, "package", fileName));
+      fileUrl = `/package/${fileName}`; // Relative path to access the file later
+    }
+
+    // Handle multiple image upload
+    if (req.files && req.files["images[]"]) {
+      const images = Array.isArray(req.files["images[]"])
+        ? req.files["images[]"]
+        : [req.files["images[]"]];
+
+      for (const image of images) {
+        const fileName = image.name;
+        await image.mv(path.join(__dirname, "packages", fileName));
+        newImagesUrl.push(fileName);
+      }
+    }
+
     const data = req.body;
+    const itineraryData = [];
+    const inclusions = [];
+
+    // Extract data from request body
+    Object.keys(req.body).forEach((key) => {
+      // Check if the key matches the pattern 'itineraryData[index][day]' or 'itineraryData[index][itinerary]'
+      const matchItinerary = key.match(
+        /^itineraryData\[(\d+)\]\[(day|itinerary)\]$/
+      );
+      if (matchItinerary) {
+        const index = parseInt(matchItinerary[1]);
+        const field = matchItinerary[2];
+        const value = req.body[key];
+
+        // Ensure the itinerary object exists at the index
+        if (!itineraryData[index]) {
+          itineraryData[index] = {};
+        }
+
+        // Set the field value for the corresponding itinerary object
+        itineraryData[index][field] = value;
+      }
+
+      // Check if the key matches the pattern 'inclusions[]'
+      const matchInclusions = key.match(/^inclusions\[\]$/);
+
+      if (matchInclusions && Array.isArray(req.body[key])) {
+        // Access the array of inclusions
+        const inclusionValues = req.body[key];
+        // Push each value to the 'inclusions' array
+        inclusionValues.forEach((value) => {
+          inclusions.push(value);
+        });
+      }
+
+      // Check if the key matches the pattern 'DestinationOption[index][value]' or similar patterns
+      const matchDestinationOption = key.match(
+        /^DestinationOption\[(\d+)\]\[(value|label)\]$/
+      );
+      if (matchDestinationOption) {
+        const index = parseInt(matchDestinationOption[1]);
+        const field = matchDestinationOption[2];
+        if (!data.DestinationOption) data.DestinationOption = [];
+        if (!data.DestinationOption[index]) data.DestinationOption[index] = {};
+        data.DestinationOption[index][field] = req.body[key];
+      }
+
+      const matchPlacename = key.match(
+        /^placenameCategorySelect\[(\d+)\]\[(value|label)\]$/
+      );
+      if (matchPlacename) {
+        const index = parseInt(matchPlacename[1]);
+        const field = matchPlacename[2];
+        if (!data.placenameCategorySelect) data.placenameCategorySelect = [];
+        if (!data.placenameCategorySelect[index])
+          data.placenameCategorySelect[index] = {};
+        data.placenameCategorySelect[index][field] = req.body[key];
+      }
+
+      const matchmidCategoryOptions = key.match(
+        /^midCategoryOptions\[(\d+)\]\[(value|label)\]$/
+      );
+      if (matchmidCategoryOptions) {
+        const index = parseInt(matchmidCategoryOptions[1]);
+        const field = matchmidCategoryOptions[2];
+        if (!data.midCategoryOptions) data.midCategoryOptions = [];
+        if (!data.midCategoryOptions[index])
+          data.midCategoryOptions[index] = {};
+        data.midCategoryOptions[index][field] = req.body[key];
+      }
+      const matchtripTypeSelect = key.match(
+        /^tripTypeSelect\[(\d+)\]\[(value|label)\]$/
+      );
+      if (matchtripTypeSelect) {
+        const index = parseInt(matchtripTypeSelect[1]);
+        const field = matchtripTypeSelect[2];
+        if (!data.tripTypeSelect) data.tripTypeSelect = [];
+        if (!data.tripTypeSelect[index]) data.tripTypeSelect[index] = {};
+        data.tripTypeSelect[index][field] = req.body[key];
+      }
+
+      const matchregionSelect = key.match(
+        /^regionSelect\[(\d+)\]\[(value|label)\]$/
+      );
+      if (matchregionSelect) {
+        const index = parseInt(matchregionSelect[1]);
+        const field = matchregionSelect[2];
+        if (!data.regionSelect) data.regionSelect = [];
+        if (!data.regionSelect[index]) data.regionSelect[index] = {};
+        data.regionSelect[index][field] = req.body[key];
+      }
+
+      const matchRelatedpackages = key.match(
+        /^Relatedpackages\[(\d+)\]\[(value|label)\]$/
+      );
+      if (matchRelatedpackages) {
+        const index = parseInt(matchRelatedpackages[1]);
+        const field = matchRelatedpackages[2];
+        if (!data.Relatedpackages) data.Relatedpackages = [];
+        if (!data.Relatedpackages[index]) data.Relatedpackages[index] = {};
+        data.Relatedpackages[index][field] = req.body[key];
+      }
+    });
+
+    const cleanedItineraryData = itineraryData.filter((entry) => entry);
+
+    // Now 'cleanedItineraryData' contains the parsed itinerary data
     // console.log(data);
-    const midTourDocument = new AddpackageSchemas(data);
 
-    // console.log(topTourDocument);
+    data.fileUrl = fileUrl; // Store the relative path to the single file
+    data.newImagesUrl = newImagesUrl; // Store the relative paths to the multiple files
 
-    const savedDocument = await midTourDocument.save();
+    // Create a new package tour document using the schema
+    const packageDocument = await AddpackageSchemas.create({
+      ...data,
+      destinationName: JSON.parse(data?.destinationName),
+      image: req.files && req.files.file ? req.files.file.name : "", // Store the single image name
+      itineraryData: cleanedItineraryData,
+      inclusions: inclusions,
+      DestinationOption: data?.DestinationOption,
+      placeName: data?.placenameCategorySelect,
+      midCategoryOptions: data?.midCategoryOptions,
+      tripTypeSelect: data?.tripTypeSelect,
+      regionSelect: data?.regionSelect,
+      Relatedpackages: data?.Relatedpackages,
+    });
 
-    res.status(200).json(savedDocument);
+    res.status(200).json({
+      data: packageDocument,
+      msg: "Successfully added Package",
+    });
   } catch (error) {
     console.error("Error processing the request:", error);
     res.status(500).json({ error: "Internal Server Error" });
@@ -701,15 +1202,177 @@ app.delete("/add-package-tour-delete/:id", async (req, res) => {
   }
 });
 
-app.put("/add-package-tour-edit/:id", async (req, res) => {
+app.patch("/add-package-tour-edit/:id", async (req, res) => {
   const id = req.params.id;
-  // console.log("id", id);
   const newData = req.body;
-  // console.log(newData);
+  console.log("newdata package", newData);
   try {
+    let fileUrl = ""; // For single image upload
+    let newImagesUrl = [];
+    const itineraryData = [];
+    const inclusions = [];
+    const data = {};
+    // For multiple image upload
+    // console.log(req.files);
+    // Handle single image upload
+    if (req.files && req.files.image) {
+      const file = req.files.image;
+      const fileName = file.name;
+      await file.mv(path.join(__dirname, "package", fileName));
+      fileUrl = `/package/${fileName}`; // Relative path to access the file later
+    }
+
+    Object.keys(req.body).forEach((key) => {
+      const matchDestinationName = key.match(/^destinationName\[(id|name)\]$/);
+
+      if (matchDestinationName) {
+        // Extract the field (id or name)
+        const field = matchDestinationName[1];
+
+        // Store the value in the data object under the appropriate field
+        data[field] = req.body[key];
+      }
+      // Check if the key matches the pattern 'images[]'
+      const matchImages = key.match(/^images\[\]$/);
+
+      if (matchImages) {
+        // Access the array of image filenames
+        const imageFilenames = req.body[key];
+        newImagesUrl = imageFilenames;
+        // console.log(imageFilenames.map((filename) => filename));
+        // Handle the array of image filenames here
+      }
+
+      const matchItinerary = key.match(
+        /^itineraryData\[(\d+)\]\[(day|itinerary)\]$/
+      );
+      if (matchItinerary) {
+        const index = parseInt(matchItinerary[1]);
+        const field = matchItinerary[2];
+        const value = req.body[key];
+
+        // Ensure the itinerary object exists at the index
+        if (!itineraryData[index]) {
+          itineraryData[index] = {};
+        }
+
+        // Set the field value for the corresponding itinerary object
+        itineraryData[index][field] = value;
+      }
+
+      const matchInclusions = key.match(/^inclusions\[\]$/);
+
+      if (matchInclusions && Array.isArray(req.body[key])) {
+        // Access the array of inclusions
+        const inclusionValues = req.body[key];
+        // Push each value to the 'inclusions' array
+        inclusionValues.forEach((value) => {
+          inclusions.push(value);
+        });
+      }
+
+      const matchDestinationOption = key.match(
+        /^DestinationOption\[(\d+)\]\[(value|label)\]$/
+      );
+      if (matchDestinationOption) {
+        const index = parseInt(matchDestinationOption[1]);
+        const field = matchDestinationOption[2];
+        if (!newData.DestinationOption) newData.DestinationOption = [];
+        if (!newData.DestinationOption[index])
+          newData.DestinationOption[index] = {};
+        newData.DestinationOption[index][field] = req.body[key];
+      }
+
+      const matchPlacename = key.match(
+        /^placenameCategorySelect\[(\d+)\]\[(value|label)\]$/
+      );
+      if (matchPlacename) {
+        const index = parseInt(matchPlacename[1]);
+        const field = matchPlacename[2];
+        if (!newData.placenameCategorySelect)
+          newData.placenameCategorySelect = [];
+        if (!newData.placenameCategorySelect[index])
+          newData.placenameCategorySelect[index] = {};
+        newData.placenameCategorySelect[index][field] = req.body[key];
+      }
+
+      const matchmidCategoryOptions = key.match(
+        /^midCategoryOptions\[(\d+)\]\[(value|label)\]$/
+      );
+      if (matchmidCategoryOptions) {
+        const index = parseInt(matchmidCategoryOptions[1]);
+        const field = matchmidCategoryOptions[2];
+        if (!newData.midCategoryOptions) newData.midCategoryOptions = [];
+        if (!newData.midCategoryOptions[index])
+          newData.midCategoryOptions[index] = {};
+        newData.midCategoryOptions[index][field] = req.body[key];
+      }
+      const matchtripTypeSelect = key.match(
+        /^tripTypeSelect\[(\d+)\]\[(value|label)\]$/
+      );
+      if (matchtripTypeSelect) {
+        const index = parseInt(matchtripTypeSelect[1]);
+        const field = matchtripTypeSelect[2];
+        if (!newData.tripTypeSelect) newData.tripTypeSelect = [];
+        if (!newData.tripTypeSelect[index]) newData.tripTypeSelect[index] = {};
+        newData.tripTypeSelect[index][field] = req.body[key];
+      }
+
+      const matchregionSelect = key.match(
+        /^regionSelect\[(\d+)\]\[(value|label)\]$/
+      );
+      if (matchregionSelect) {
+        const index = parseInt(matchregionSelect[1]);
+        const field = matchregionSelect[2];
+        if (!newData.regionSelect) newData.regionSelect = [];
+        if (!newData.regionSelect[index]) newData.regionSelect[index] = {};
+        newData.regionSelect[index][field] = req.body[key];
+      }
+
+      const matchRelatedpackages = key.match(
+        /^Relatedpackages\[(\d+)\]\[(value|label)\]$/
+      );
+      if (matchRelatedpackages) {
+        const index = parseInt(matchRelatedpackages[1]);
+        const field = matchRelatedpackages[2];
+        if (!newData.Relatedpackages) newData.Relatedpackages = [];
+        if (!newData.Relatedpackages[index])
+          newData.Relatedpackages[index] = {};
+        newData.Relatedpackages[index][field] = req.body[key];
+      }
+    });
+
+    const cleanedItineraryData = itineraryData.filter((entry) => entry);
+    // Handle multiple image upload
+    if (req.files && req.files["images[]"]) {
+      const images = Array.isArray(req.files["images[]"])
+        ? req.files["images[]"]
+        : [req.files["images[]"]];
+
+      for (const image of images) {
+        const fileName = image.name;
+        await image.mv(path.join(__dirname, "packages", fileName));
+        const imageUrl = `/packages/${fileName}`; // Relative path to access the file later
+        newImagesUrl.push(fileName);
+      }
+    }
+
+    // Update the data object with new image URLs
+    newData.fileUrl = fileUrl; // Update single image URL
+    newData.newImagesUrl = newImagesUrl; // Update multiple image URLs
+
     const updatedDocument = await AddpackageSchemas.findByIdAndUpdate(
       id,
-      newData,
+      {
+        ...newData,
+        image: req.files && req.files.image ? req.files.image.name : "",
+        newImagesUrl: newData?.newImagesUrl,
+        itineraryData: cleanedItineraryData,
+        inclusions,
+        DestinationOption: newData?.DestinationOption,
+        destinationName: data,
+        placeName: newData?.placenameCategorySelect,
+      },
       { new: true }
     );
 
@@ -805,11 +1468,9 @@ app.post("/offer-add-Page", async (req, res) => {
   try {
     const data = req.body;
 
-    const offerTourDocument = new OfferSchemas(data);
+    const offerTourDocument = new OfferSchemas.create({ ...data });
 
-    const savedDocument = await offerTourDocument.save();
-
-    res.status(200).json(savedDocument);
+    res.status(200).json(offerTourDocument);
   } catch (error) {
     console.error("Error processing the request:", error);
     res.status(500).json({ error: "Internal Server Error" });
@@ -828,17 +1489,30 @@ app.get("/get-All-offers", async (req, res) => {
 ///blogs api's
 
 app.post("/admin/blog-Add", async (req, res) => {
-  const data = req.body;
+  // const data = req.body;
   try {
+    let fileUrl = "";
+    if (req.files && req.files.file) {
+      const file = req.files.file;
+      const fileName = file.name;
+      // Move the file to the desired folder
+      await file.mv(path.join(__dirname, "blog", fileName));
+      fileUrl = `/blog/${fileName}`; // Relative path to access the file later
+    }
+
     const data = req.body;
     // console.log(data);
-    const Blogdocument = new BlogSchemas(data);
+    const Blogdocument = await BlogSchemas.create({
+      ...data,
+      image: req.files && req.files.file ? req.files.file.name : "",
+      fileUrl,
+    });
 
     // console.log(topTourDocument);
 
-    const savedDocument = await Blogdocument.save();
+    // const savedDocument = await Blogdocument.save();
 
-    res.status(200).json(savedDocument);
+    res.status(200).json(Blogdocument);
   } catch (error) {
     console.error("Error processing the request:", error);
     res.status(500).json({ error: "Internal Server Error" });
@@ -854,15 +1528,36 @@ app.get("/admin/get-all-blogs", async (req, res) => {
   }
 });
 
-app.put("/edit-blog/:id", async (req, res) => {
+app.patch("/edit-blog/:id", async (req, res) => {
   const id = req.params.id;
 
-  const newData = req.body;
-
   try {
-    const updatedDocument = await BlogSchemas.findByIdAndUpdate(id, newData, {
-      new: true,
-    });
+    let fileUrl = "";
+    if (req.files && req.files.file) {
+      const file = req.files.file;
+      const fileName = file.name;
+      // Move the file to the desired folder
+      await file.mv(path.join(__dirname, "blog", fileName));
+      fileUrl = `/blog/${fileName}`; // Relative path to access the file later
+    }
+
+    const images = req.body?.file
+      ? req.body.file
+      : req.files && req.files.file
+      ? req.files.file.name
+      : "";
+
+    const data = req.body;
+    data.fileUrl = fileUrl;
+    const imageurl = req.body?.fileUrl || fileUrl;
+    console.log("blog", data);
+    const updatedDocument = await BlogSchemas.findByIdAndUpdate(
+      id,
+      { ...data, image: images, fileUrl: imageurl },
+      {
+        new: true,
+      }
+    );
 
     if (updatedDocument) {
       res.status(201).json(updatedDocument);
@@ -904,10 +1599,31 @@ app.post("/admin/Faq-Add", async (req, res) => {
   const data = req.body;
   try {
     const data = req.body;
-    const Blogdocument = new FaqSchemas(data);
-    const savedDocument = await Blogdocument.save();
+    const Blogdocument = FaqSchemas.create({ ...data });
+    // const savedDocument = await Blogdocument.save();
 
-    res.status(200).json(savedDocument);
+    res.status(200).json(Blogdocument);
+  } catch (error) {
+    console.error("Error processing the request:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+app.patch("/admin/Faq-edit/:id", async (req, res) => {
+  const data = req.body;
+  const id = req.params.id;
+  try {
+    const data = req.body;
+    const updatedDocument = await FaqSchemas.findByIdAndUpdate(
+      id,
+      { ...data },
+      {
+        new: true,
+      }
+    );
+    // const savedDocument = await Blogdocument.save();
+
+    res.status(200).json(updatedDocument);
   } catch (error) {
     console.error("Error processing the request:", error);
     res.status(500).json({ error: "Internal Server Error" });
@@ -929,6 +1645,22 @@ app.get("/get-FAQ-ById/:id", async (req, res) => {
   const data = await FaqSchemas.findById(id);
 
   res.status(200).json({ data });
+});
+
+app.delete("/faq-delete/:id", async (req, res) => {
+  const id = req.params.id;
+
+  try {
+    const deletedDocument = await FaqSchemas.findByIdAndDelete(id);
+
+    if (deletedDocument) {
+      res.status(200).json({ message: "Document deleted successfully" });
+    } else {
+      res.status(404).json({ error: "Document not found" });
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 //user routes
@@ -974,36 +1706,38 @@ app.post("/login", async (req, res) => {
   // // Generate JWT token
 });
 
-// app.post("/register", async (req, res) => {
-//   try {
-//     const { email, password } = req.body;
-//     console.log(email, password);
-//     // Check if the user already exists
-//     const existingUser = await User.findOne({ email });
-//     if (existingUser) {
-//       return res.status(400).json({ error: "User already exists" });
-//     }
+app.post("/register", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    console.log(email, password);
+    // Check if the user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ error: "User already exists" });
+    }
 
-//     // Hash the password
-//     const hashedPassword = await bcrypt.hash(password, 10);
+    // Hash the password
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-//     // Create a new user instance
-//     const newUser = new User({
-//       username: email,
-//       password: hashedPassword,
-//     });
+    // Create a new user instance
+    const newUser = await User.create({
+      username: email,
+      password: hashedPassword,
+    });
 
-//     // Save the user to the database
-//     await newUser.save();
+    // Save the user to the database
+    // await newUser.save();
 
-//     // Send a success response
-//     res.status(200).json({ message: "User registered successfully" });
-//   } catch (error) {
-//     // If an error occurs, send an error response
-//     console.error("Error registering user:", error);
-//     res.status(500).json({ error: "Internal server error" });
-//   }
-// });
+    // Send a success response
+    res
+      .status(200)
+      .json({ message: "User registered successfully", user: newUser });
+  } catch (error) {
+    // If an error occurs, send an error response
+    console.error("Error registering user:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 app.post("/logout", (req, res) => {
   // You can add logic here if needed

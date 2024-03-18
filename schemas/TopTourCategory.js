@@ -26,6 +26,9 @@ const TopPackageSchema = new Schema({
   seoDescription: {
     type: String,
   },
+  image: {
+    type: String,
+  },
 });
 
 const ToppackageSchemas = mongoose.model("TopTourpackages", TopPackageSchema);

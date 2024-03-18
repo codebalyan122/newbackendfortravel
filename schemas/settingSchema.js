@@ -41,6 +41,9 @@ const settingSchema = new Schema({
   image: {
     type: String,
   },
+  fileUrl: {
+    type: String,
+  },
 });
 
 const settingSchemas = mongoose.model("settingSchema", settingSchema);

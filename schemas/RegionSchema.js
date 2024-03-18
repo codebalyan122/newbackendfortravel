@@ -5,9 +5,9 @@ const RegionSchema = new Schema({
   RegionName: {
     type: String,
   },
-  file: {
-    type: {},
-  },
+  // file: {
+  //   type: {},
+  // },
   fileUrl: {
     type: String,
   },
@@ -24,6 +24,9 @@ const RegionSchema = new Schema({
     type: String,
   },
   seoDescription: {
+    type: String,
+  },
+  image: {
     type: String,
   },
 });

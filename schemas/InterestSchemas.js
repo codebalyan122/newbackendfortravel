@@ -26,6 +26,9 @@ const InterestSchema = new Schema({
   seoDescription: {
     type: String,
   },
+  image: {
+    type: String,
+  },
 });
 
 const InterestSchemas = mongoose.model("Interest", InterestSchema);

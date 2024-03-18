@@ -3,7 +3,8 @@ const Schema = mongoose.Schema;
 
 const MidPackageSchema = new Schema({
   topCategoryName: {
-    type: String,
+    id: { type: mongoose.Schema.Types.ObjectId },
+    name: String,
   },
   midCategoryName: {
     type: String,
@@ -17,9 +18,7 @@ const MidPackageSchema = new Schema({
     ],
     ref: "PlaceNameSchemas",
   },
-  file: {
-    type: {},
-  },
+
   fileUrl: {
     type: String,
   },
@@ -34,6 +33,9 @@ const MidPackageSchema = new Schema({
     type: String,
   },
   seoDescription: {
+    type: String,
+  },
+  image: {
     type: String,
   },
 });

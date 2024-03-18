@@ -1,87 +1,74 @@
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
+const ItineraryItemSchema = new Schema({
+  day: String,
+  itinerary: String,
+});
+
 const AddPackageSchema = new Schema({
   destinationName: {
-    type: String,
+    id: { type: mongoose.Schema.Types.ObjectId },
+    name: String,
   },
-  placeName: {
-    type: [
-      {
-        value: { type: mongoose.Schema.Types.ObjectId },
-        label: { type: String },
-      },
-    ],
-  },
-  packageName: {
-    type: String,
-  },
-  price: {
-    type: String,
-  },
-  day: {
-    type: String,
-  },
-  night: {
-    type: String,
-  },
-  startingLocation: {
-    type: String,
-  },
-  endingLocation: {
-    type: String,
-  },
-  sameDay: {
-    type: String,
-  },
-  featuredPhotoUrl: { type: String },
-  imagesUrl: { type: String },
-  packagePdfUrl: {
-    type: {},
-  },
-  extractedText: {
-    type: String,
-  },
-  itineraryData: {
-    type: [{}],
-  },
-  inclusions: [String],
-  exclusionText: { type: String },
 
-  Relatedpackages: {
-    type: [{ value: [{}], label: { type: String } }],
-  },
-  DestinationOption: {
-    type: [{ value: [{}], label: { type: String } }],
-  },
-  midCategoryOptions: {
-    type: [{ value: [{}], label: { type: String } }],
-  },
-  tripTypeSelect: {
-    type: [{ value: [{}], label: { type: String } }],
-  },
-  regionSelect: {
-    type: [{ value: [{}], label: { type: String } }],
-  },
-  isRecommended: {
-    type: String,
-  },
-  isChardham: {
-    type: String,
-  },
-  seoTitle: {
-    type: String,
-  },
-  seoKeyword: {
-    type: String,
-  },
-  seoDescription: {
-    type: String,
-  },
-  newImagesUrl: {
-    type: [String],
-    required: false,
-  },
+  placeName: [
+    {
+      value: { type: mongoose.Schema.Types.ObjectId },
+      label: String,
+    },
+  ],
+  packageName: String,
+  price: String,
+  day: String,
+  night: String,
+  startingLocation: String,
+  endingLocation: String,
+  sameDay: String,
+  featuredPhotoUrl: String,
+  imagesUrl: String,
+  packagePdfUrl: {},
+  extractedText: String,
+  itineraryData: [ItineraryItemSchema], // Define as an array of objects
+  inclusions: [String],
+  exclusionText: String,
+  Relatedpackages: [
+    {
+      value: { type: mongoose.Schema.Types.ObjectId },
+      label: String,
+    },
+  ],
+  DestinationOption: [
+    {
+      value: { type: mongoose.Schema.Types.ObjectId },
+      label: String,
+    },
+  ],
+  midCategoryOptions: [
+    {
+      value: { type: mongoose.Schema.Types.ObjectId },
+      label: String,
+    },
+  ],
+  tripTypeSelect: [
+    {
+      value: { type: mongoose.Schema.Types.ObjectId },
+      label: String,
+    },
+  ],
+  regionSelect: [
+    {
+      value: { type: mongoose.Schema.Types.ObjectId },
+      label: String,
+    },
+  ],
+  isRecommended: String,
+  isChardham: String,
+  seoTitle: String,
+  seoKeyword: String,
+  seoDescription: String,
+  newImagesUrl: [String],
+  image: String,
 });
 
 const AddpackageSchemas = mongoose.model("AddpackagesSchema", AddPackageSchema);

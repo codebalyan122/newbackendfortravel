@@ -9,9 +9,9 @@ const BlogSchema = new Schema({
     type: String,
   },
   url: { type: String },
-  fileUrl: {
-    type: String,
-  },
+  // fileUrl: {
+  //   type: String,
+  // },
   postBy: {
     type: String,
   },
@@ -23,6 +23,9 @@ const BlogSchema = new Schema({
   },
   seoKeyword: { type: String },
   SeoDescription: { type: String },
+  image: {
+    type: String,
+  },
 });
 
 const BlogSchemas = mongoose.model("BlogSchema", BlogSchema);

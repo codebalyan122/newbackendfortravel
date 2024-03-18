@@ -3,8 +3,8 @@ const Schema = mongoose.Schema;
 
 const PlaceNameSchema = new Schema({
   DestinationName: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "DestinationSchemas",
+    id: { type: mongoose.Schema.Types.ObjectId },
+    name: String,
   },
   Placename: {
     type: String,
@@ -34,6 +34,9 @@ const PlaceNameSchema = new Schema({
     type: String,
   },
   destinationName: {
+    type: String,
+  },
+  image: {
     type: String,
   },
 });

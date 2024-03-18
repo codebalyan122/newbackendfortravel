@@ -26,6 +26,9 @@ const DestinationSchema = new Schema({
   seoDescription: {
     type: String,
   },
+  image: {
+    type: String,
+  },
 });
 
 const DestinationSchemas = mongoose.model(
