@@ -376,6 +376,22 @@ app.get("/mid-tour-get/:id", async (req, res) => {
   res.status(200).json({ data });
 });
 
+app.get("/mid-tour-get-id/:id", async (req, res) => {
+  console.log("params", req.params);
+  try {
+    const topCategoryId = req.params.id;
+
+    // Find all midpackages where topcategory._id matches req.params.id
+    const midpackages = await MidpackageSchemas.find({
+      "topCategoryName.id": new mongoose.Types.ObjectId(topCategoryId),
+    });
+
+    res.status(200).json({ midpackages });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post("/mid-tour-post", async (req, res) => {
   const data = req.body;
   try {
