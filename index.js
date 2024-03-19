@@ -5,6 +5,8 @@ const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
+const sharp = require("sharp");
+
 const morgan = require("morgan");
 const fileUpload = require("express-fileupload");
 // const rateLimit = require("express-rate-limit");
@@ -1042,7 +1044,18 @@ app.post("/add-package-tour-post", async (req, res) => {
     if (req.files && req.files.file) {
       const file = req.files.file;
       const fileName = file.name;
-      await file.mv(path.join(__dirname, "package", fileName));
+      const resizedImageBuffer = await sharp(file.data)
+        .resize({ width: 800 }) // Set desired width
+        .jpeg({ quality: 80 }) // Set JPEG quality (optional)
+        .toBuffer();
+
+      // Save the resized image buffer to a file
+      const savedFilePath = path.join(__dirname, "package", fileName);
+      await sharp(resizedImageBuffer).toFile(savedFilePath);
+
+      // Move the saved file
+      // await file.mv(savedFilePath);
+
       fileUrl = `/package/${fileName}`; // Relative path to access the file later
     }
 
@@ -1219,7 +1232,7 @@ app.get("/add-package-tour-get/:id", async (req, res) => {
 app.get("/add-package-tour-get-midcategory/:id", async (req, res) => {
   try {
     const id = req.params.id;
-    console.log(id);
+    // console.log(id);
     // Find packages where midCategoryOptions array contains an object with value matching the id
     const data = await AddpackageSchemas.find({
       "midCategoryOptions.value": id,
