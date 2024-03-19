@@ -470,6 +470,7 @@ app.patch("/mid-tour-edit/:id", async (req, res) => {
   // console.log(newData);
   try {
     let fileUrl = "";
+    const topCategoryData = {};
 
     Object.keys(req.body).forEach((key) => {
       const matchPlacename = key.match(
@@ -482,6 +483,18 @@ app.patch("/mid-tour-edit/:id", async (req, res) => {
         if (!data.placeForMidCategory[index])
           data.placeForMidCategory[index] = {};
         data.placeForMidCategory[index][field] = req.body[key];
+      }
+
+      const matchTopCategory = key.match(/^topCategoryName\[(id|name)\]$/);
+
+      // If there's a match
+      if (matchTopCategory) {
+        // Extract the field ('id' or 'name') and the value from the key
+        const field = matchTopCategory[1];
+        const value = req.body[key];
+
+        // Store the extracted data in the topCategoryData object
+        topCategoryData[field] = value;
       }
     });
 
@@ -507,6 +520,7 @@ app.patch("/mid-tour-edit/:id", async (req, res) => {
         ...data,
         image: images,
         fileUrl: imageurl,
+        topCategoryName: topCategoryData,
       },
       { new: true }
     );
