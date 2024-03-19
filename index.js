@@ -383,7 +383,7 @@ app.get("/mid-tour-get-id/:id", async (req, res) => {
 
     // Find all midpackages where topcategory._id matches req.params.id
     const midpackages = await MidpackageSchemas.find({
-      "topCategoryName.id": new mongoose.Types.ObjectId(topCategoryId),
+      "topCategoryName.id": topCategoryId,
     });
 
     res.status(200).json({ midpackages });
