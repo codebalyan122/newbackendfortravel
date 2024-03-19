@@ -1216,6 +1216,22 @@ app.get("/add-package-tour-get/:id", async (req, res) => {
   res.status(200).json({ data });
 });
 
+app.get("/add-package-tour-get-midcategory/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+    console.log(id);
+    // Find packages where midCategoryOptions array contains an object with value matching the id
+    const data = await AddpackageSchemas.find({
+      "midCategoryOptions.value": id,
+    });
+
+    res.status(200).json({ data });
+  } catch (error) {
+    console.error("Error fetching packages:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 app.delete("/add-package-tour-delete/:id", async (req, res) => {
   const id = req.params.id;
   // console.log(id);
